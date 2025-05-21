@@ -162,22 +162,6 @@ void CheckingNonZero(ComplexVector A){
 }
 
 
-/*
-void CheckingNonZero(ComplexVector A){
-	Real Win=0.;
-	int Ar=A.size1();
-	
-	for (int Sr=0;Sr<Ar;Sr++){
-		  	for (int Sc=0;Sc<Ac;Sc++){
-		  		Win = real(A(Sr,Sc));
-		  		if(Win != 0){
-		  			cout<<"A("<<Sr<<","<<Sc<<")="<<Win<<endl;
-		  		}
-		  	}
-		  }
-}
-*/
-
 
 //-------------------------Operators------------------------//
 
@@ -430,7 +414,8 @@ ComplexMatrix TrnsfrMtrx_MPO(ComplexMatrix &H, ComplexMatrix& A, int k){
 }
 
 
-Real MPO_measurementog(ComplexMatrix& A, ComplexMatrix& H, int L) {
+//original (forward)
+Real MPO_measurement_forward(ComplexMatrix& A, ComplexMatrix& H, int L) {
     // Compute the expectation value of an MPO using transfer matrices
     Real measure;
     //int Ar = A.size1(), Ac = A.size2();
@@ -446,48 +431,7 @@ Real MPO_measurementog(ComplexMatrix& A, ComplexMatrix& H, int L) {
 
     // Compute the first transfer matrix incorporating the MPO
     supEE_2 = TrnsfrMtrx_MPO(H, Aket, 0);
-    supEE_1 = Trmu_MPO(supEE_2, 0);
-    
-    	cout<<"----------------------------"<<endl;
-	cout<<"PRODUCT OF TRANSFER MATRICES (First to Last)"<<endl;
-	cout<<"----------------------------"<<endl;
-
-		  //TESTING
-		    cout<<"Checking for TrnsfrMtrx_ k=0"<<endl;
-		   // CheckingNonZero(supEE_2);	
-		    	  
-		 //cout<<"Checking for Aket"<<endl;
-		 //CheckingNonZero(Aket);		  
-		  
-		 //cout<<"Checking for SupEE_2"<<endl;
-		 //CheckingNonZero(supEE_2);
-		 
-		 //cout<<"Checking for SupEE_1"<<endl;
-		 //CheckingNonZero(supEE_1);
-	
-	
-	
-	ComplexMatrix Total_E(w * M * M, w * M * M), Temporal_E(w * M * M, w * M * M) ;
-	for(int omega=0;omega<L;omega++){
-		if(omega==0){
-		Total_E = supEE_2;
-		
-		}else{
-		Temporal_E = TrnsfrMtrx_MPO(H, Aket, omega);
-			cout<<"Checking for TrnfrMTX k="<<omega<<endl;
-		    //CheckingNonZero(Temporal_E);	
-		
-		Total_E = prod(Total_E,Temporal_E);
-		
-			
-		}
-		//TESTING
-			cout<<"Checking for Total_E k="<<omega<<endl;
-		    //CheckingNonZero(Total_E);
-	}	 
-	cout<<"----------------------------"<<endl;
-	cout<<"            END             "<<endl;
-	cout<<"----------------------------"<<endl;	  
+    supEE_1 = Trmu_MPO(supEE_2, 0);	  
 
 	 
     // Extract relevant elements into vector E
@@ -513,7 +457,7 @@ Real MPO_measurementog(ComplexMatrix& A, ComplexMatrix& H, int L) {
             	
             	//TESTING
 		cout<<"Checking for TrnsfrMtrx_ k="<<ss<<endl;
-		//CheckingNonZero(EE_3);	      
+		CheckingNonZero(EE_3);	      
           
     }
 
@@ -523,7 +467,7 @@ Real MPO_measurementog(ComplexMatrix& A, ComplexMatrix& H, int L) {
 	supEE_1 = Trmu_MPO(supEE_2, 1);
 	
 	cout<<"Checking for TrnsfrMtrx_ k=L"<<endl;
-	//CheckingNonZero(supEE_2);	 
+	CheckingNonZero(supEE_2);	 
 	
 	for (int gamma = 0; gamma < w; gamma++) {
 		for (int alpha = 0; alpha < M; alpha++) {
@@ -542,8 +486,8 @@ Real MPO_measurementog(ComplexMatrix& A, ComplexMatrix& H, int L) {
     return measure;
 }
 
-
-Real MPO_measurement(ComplexMatrix& A, ComplexMatrix& H, int L) { //THIS ONE DOES IT FROM RIGHT TO LEFT.
+//backwards
+Real MPO_measurement_backwards(ComplexMatrix& A, ComplexMatrix& H, int L) { //THIS ONE DOES IT FROM RIGHT TO LEFT.
     // Compute the expectation value of an MPO using transfer matrices
     Real measure;
     
@@ -559,10 +503,6 @@ Real MPO_measurement(ComplexMatrix& A, ComplexMatrix& H, int L) { //THIS ONE DOE
     // Compute the LAST transfer matrix incorporating the MPO
     supEE_2 = TrnsfrMtrx_MPO(H, Aket, L-1);
     supEE_1 = Trmu_MPO(supEE_2, 1);
-    
-    	cout<<"----------------------------"<<endl;
-	cout<<"PRODUCT OF TRANSFER MATRICES (Last to First)"<<endl;
-	cout<<"----------------------------"<<endl;
 
 		  //TESTING
 		   cout<<"Checking for TrnsfrMtrx_ k=L"<<endl;
@@ -612,13 +552,36 @@ Real MPO_measurement(ComplexMatrix& A, ComplexMatrix& H, int L) { //THIS ONE DOE
                 }
             }
          
-         //This one is currently working 
-         /*
-        cout<<"--------------------------------------------------------"<<endl;
-        cout<<"Checking for the backwards product of Transfer Matrices "<<endl;
-        cout<<"--------------------------------------------------------"<<endl;
-        
-       	ComplexMatrix Total_E(w * M * M, w * M * M), Temporal_E(w * M * M, w * M * M) ;
+    // Compute final measurement value as real inner product
+   
+    measure = real(inner_prod(Ef,E));
+
+    return measure;
+}
+
+
+//MPO_measurement_slow
+Real MPO_measurement(ComplexMatrix& A, ComplexMatrix& H, int L) { 
+    // Compute the expectation value of an MPO using transfer matrices
+    Real measure;
+    
+    // Copy MPS tensors
+    ComplexMatrix Abra = A;
+    ComplexMatrix Aket = A;
+
+    // Initialize vectors and matrices-
+    ComplexVector E(w * M * M), Ef(w * M * M);
+    ComplexMatrix supEE_1(w * M, w * M), supEE_2(w * M * M, w * M * M), EE_3(w * M * M, w * M * M);
+    ComplexMatrix supE(w * M * M, w);
+
+    // Compute the LAST transfer matrix incorporating the MPO
+    
+        cout<<"----------------------------"<<endl;
+	cout<<"PRODUCT OF TRANSFER MATRICES (Last to First)"<<endl;
+	cout<<"----------------------------"<<endl;
+    
+    
+	ComplexMatrix Total_E(w * M * M, w * M * M), Temporal_E(w * M * M, w * M * M) ;
 	for(int omega=L-1;omega>0;omega--){
 		if(omega==L-1){
 		Total_E = TrnsfrMtrx_MPO(H, Aket, omega);
@@ -640,15 +603,58 @@ Real MPO_measurement(ComplexMatrix& A, ComplexMatrix& H, int L) { //THIS ONE DOE
 	cout<<"----------------------------"<<endl;
 	cout<<"            END             "<<endl;
 	cout<<"----------------------------"<<endl;	  
-
-	*/
+	//Let's calculate the traces
+	supEE_1 = Trmu_MPO(Total_E, 0);
+	supEE_2 = Trmu_MPO(Total_E, 1);	   
+		   
+		   
+    // Extract relevant elements into vector E
+    for (int gamma = 0; gamma < w; gamma++) {
+        for (int gamma_ = 0; gamma_ < w; gamma_++) {
+            SubComplexMatrix EE_1(supEE_1, Range(gamma * M, (gamma + 1) * M), Range(gamma_ * M, (gamma_ + 1) * M));
+            
+            for (int alpha = 0; alpha < M; alpha++) {
+                for (int alpha_ = 0; alpha_ < M; alpha_++) {
+                    int idx = gamma * M * M + alpha * M + alpha_;
+                    E(idx) = EE_1(alpha, alpha_);
+                }
+            }
+        }
+    }
+	 
+	
+	for (int gamma = 0; gamma < w; gamma++) {
+		for (int alpha = 0; alpha < M; alpha++) {
+			for (int alpha_ = 0; alpha_ < M; alpha_++) {
+				int idx = gamma * M * M + alpha * M + alpha_;
+				Ef(idx) = supEE_2(gamma * M + alpha, gamma * M + alpha_);
+                    }
+                }
+            }
+         
+         //This one is currently working 
+         cout<<"--------------------------------------------------------"<<endl;
+        cout<<"Vectors after traces"<<endl;
+        cout<<"--------------------------------------------------------"<<endl;
+        
+        cout<<"Trace Right"<<endl;
+        CheckingNonZero(Ef);
+        
+        cout<<"Trace left"<<endl;
+        CheckingNonZero(E);
+         
+         
+        cout<<"--------------------------------------------------------"<<endl;
+        cout<<"Checking for the product of Transfer Matrices "<<endl;
+        cout<<"--------------------------------------------------------"<<endl;
+        
+       	
     // Compute final measurement value as real inner product
    
     measure = real(inner_prod(Ef,E));
 
     return measure;
 }
-
 
 
 
@@ -698,7 +704,7 @@ for(int i=0; i<1;i++){
 ComplexMatrix Op(m,m);
 
 Op = Number_MPO();
-cout<<Op<<endl;
+
 Real result;
 result=MPO_measurement(A,Op,L);
 cout.rdbuf(oldCout); 
