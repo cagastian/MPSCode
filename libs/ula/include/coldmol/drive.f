@@ -1,0 +1,64 @@
+c  This drive program tests the three functions for exact calculation or
+c  tabulation of 3j (N=1), 6j (N=2) and 9j (N=3) symbols, respectively. 
+c
+c  Written by Liqiang Wei, University of Illinois at Urbana-Champaign.
+c
+       parameter (ndim = 301) 
+       integer N, prime(ndim)
+       logical pprint
+       real j1,j2,j3,m1,m2,m3
+       real a,b,c,d,e,f,g,h,j
+       real*8 threej, sixj, ninej, x, y, z
+       common /pr/ prime
+c
+c  Find the first ndim-1 prime numbers:
+c  subroutine in 369j.f
+       call find_prime()
+c
+c  Calculate 3j(N=1), 6j(N=2), or 9j(N=3) ?
+c
+       read(5,*) N
+c
+c  Tabulation of 3j, 6j, or 9j (pprint = true or false) ?
+c
+       read(5,*) pprint
+c
+       if (N .eq. 1) then
+         read(5,*) j1,j2,j3,m1,m2,m3
+         write(6,100) j1,j2,j3,m1,m2,m3    
+         do while (j1 .ge. 0)
+          x = threej(j1,j2,j3,m1,m2,m3,pprint)
+          write(6,*)"EXACT 3j symbol: ", x
+          write(6,*)"EXACT CG coefficient: ", 
+     &        x*dsqrt(dble(2*j3+1))*(-1)**(int(j1-j2-m3))
+          write(6,*)        
+          write(6,*)        
+          read(5,*) j1,j2,j3,m1,m2,m3
+          write(6,100) j1,j2,j3,m1,m2,m3
+         end do
+       else if (N .eq. 2) then
+         read(5,*) a,b,c,d,e,f
+         write(6,100) a,b,c,d,e,f
+         do while (a .ge. 0)
+          y = sixj(a,b,c,d,e,f,pprint)
+          write(6,*) "EXACT 6j symbol: ", y
+          write(6,*)        
+          write(6,*)         
+          read(5,*) a,b,c,d,e,f
+          write(6,100) a,b,c,d,e,f
+         end do
+       else if (N .eq. 3) then
+         read(5,*) a,b,c,d,e,f,g,h,j
+         write(6,200) a,b,c,d,e,f,g,h,j
+         do while (a .ge. 0)
+          z = ninej(a,b,c,d,e,f,g,h,j,pprint)
+          write(6,*) "EXACT 9j symbol: ", z
+          write(6,*)        
+          write(6,*)         
+          read(5,*) a,b,c,d,e,f,g,h,j
+          write(6,200) a,b,c,d,e,f,g,h,j
+         end do
+       end if
+ 100   format(6f6.1)
+ 200   format(9f6.1)
+       end

@@ -1,0 +1,17 @@
+CCsingle = g++
+CCFLAGS  = -O3 -Wall -ftemplate-depth-150
+ 
+LDFLAGS     =
+IDFLAGS     = -I. -I/usr/local/include/boost-1_33_1 -I$(HOME)/Software/ula/include -I$(HOME)/Software/ula/include/ula
+
+LIBS_LAPACK = -lm -llapack -lblas -lg2c
+all : test_LAPACK1 test_LAPACK2
+ 
+test_LAPACK1 : test_LAPACK1.cpp
+	$(CCsingle) $(CCFLAGS) -o $@  test_LAPACK1.cpp $(LDFLAGS) $(IDFLAGS) $(LIBS_LAPACK)
+
+test_LAPACK2 : test_LAPACK2.cpp
+	$(CCsingle) $(CCFLAGS) -o $@  test_LAPACK2.cpp $(LDFLAGS) $(IDFLAGS) $(LIBS_LAPACK)
+
+clean:
+	rm -f -r test_LAPACK1 test_LAPACK2 ti_files

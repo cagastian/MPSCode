@@ -1,0 +1,5 @@
+Collection of useful tools for using LAPACK and NAG routines from
+within C++. Check the example programs.
+You might have to adapt parts of the libary paths in the
+Makefile to make the programs work on your platform.
+
