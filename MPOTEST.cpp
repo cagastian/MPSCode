@@ -415,7 +415,7 @@ ComplexMatrix TrnsfrMtrx_MPO(ComplexMatrix &H, ComplexMatrix& A, int k){
 
 
 //original (forward)
-Real MPO_measurement_forward(ComplexMatrix& A, ComplexMatrix& H, int L) {
+Real MPO_measurement(ComplexMatrix& A, ComplexMatrix& H, int L) {
     // Compute the expectation value of an MPO using transfer matrices
     Real measure;
     //int Ar = A.size1(), Ac = A.size2();
@@ -453,7 +453,7 @@ Real MPO_measurement_forward(ComplexMatrix& A, ComplexMatrix& H, int L) {
     for (int ss = 1; ss < L-1; ss++) {
     		
             EE_3 = TrnsfrMtrx_MPO(H, Aket, ss);
-            E = prod(trans(EE_3),E);//Qué pasa si no transpongo 
+            E = prod(EE_3,E);//Qué pasa si no transpongo changed transposition and it's doing alright, still has problems in the borders tho test using A_mat and you'll get the correct value, unlike A_short2, which is 1 particle short.
             	
             	//TESTING
 		cout<<"Checking for TrnsfrMtrx_ k="<<ss<<endl;
@@ -487,7 +487,7 @@ Real MPO_measurement_forward(ComplexMatrix& A, ComplexMatrix& H, int L) {
 }
 
 //backwards
-Real MPO_measurement_backwards(ComplexMatrix& A, ComplexMatrix& H, int L) { //THIS ONE DOES IT FROM RIGHT TO LEFT.
+Real MPO_measurement_backward(ComplexMatrix& A, ComplexMatrix& H, int L) { //THIS ONE DOES IT FROM RIGHT TO LEFT.
     // Compute the expectation value of an MPO using transfer matrices
     Real measure;
     
@@ -527,13 +527,14 @@ Real MPO_measurement_backwards(ComplexMatrix& A, ComplexMatrix& H, int L) { //TH
     for (int ss = L-2; ss > 0; ss--) {
     		
             EE_3 = TrnsfrMtrx_MPO(H, Aket, ss);
-            E = prod(E,EE_3);
+            E = prod(E,EE_3);//16:23 (E,EE_3)->44 (EE_3,E) [correct!] ->0
             	
             	//TESTING
 		cout<<"Checking for TrnsfrMtrx_ k="<<ss<<endl;
 		CheckingNonZero(E);	      
           
     }
+
 
     // First site operation
     	
@@ -554,14 +555,14 @@ Real MPO_measurement_backwards(ComplexMatrix& A, ComplexMatrix& H, int L) { //TH
          
     // Compute final measurement value as real inner product
    
-    measure = real(inner_prod(Ef,E));
+    measure = real(inner_prod(E,Ef));
 
     return measure;
 }
 
 
 //MPO_measurement_slow
-Real MPO_measurement(ComplexMatrix& A, ComplexMatrix& H, int L) { 
+Real MPO_measurement_slow(ComplexMatrix& A, ComplexMatrix& H, int L) { 
     // Compute the expectation value of an MPO using transfer matrices
     Real measure;
     
@@ -687,8 +688,8 @@ ComplexMatrix Ak_(A_r, M);
 
 //RACalc(A);
 //ACalc(A);
-A_short2(A);
-
+//A_short2(A);
+A_mat(A);
 
 //int k= 2; //Center of orthogonality
 ComplexMatrix Op(m,m);
