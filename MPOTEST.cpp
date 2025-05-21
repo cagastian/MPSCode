@@ -689,17 +689,7 @@ ComplexMatrix Ak_(A_r, M);
 //ACalc(A);
 A_short2(A);
 
-cout<<"Testing Prod"<<endl;
 
-int S=8;
-ComplexVector P(S),Q(S);
-ComplexMatrix O(S,S);
-for(int i=0; i<1;i++){
-  
-  P(i)=1.;
-  Q(i)=1.;
-  cout<<"prod(P,Q)="<<inner_prod(Q,P)<<endl;
-}
 //int k= 2; //Center of orthogonality
 ComplexMatrix Op(m,m);
 
