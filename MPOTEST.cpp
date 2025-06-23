@@ -197,6 +197,26 @@ ComplexMatrix Number_MPO(){
 	return N;
 }
 
+ComplexMatrix Identity_MPO(){
+	int w=2;
+	//m is the internal degrees of freedom
+	ComplexMatrix N(w*m,w*m);
+	for(int alpha=0;alpha<w;alpha++){
+		for(int beta=0;beta<w;beta++){
+			SubComplexMatrix Op(N,Range(alpha*m, (alpha+1)*m),Range(beta*m, (beta+1)*m));
+			if(alpha==beta){
+				Op = ident_op();
+				}
+			else if(alpha==1 && beta==0){
+				Op = ident_op();
+				}
+			else{
+				continue;
+				}
+		}
+	}
+	return N;
+}
 //----------------- Functions MPO------------------//
 
 ComplexMatrix MPO_correct(ComplexMatrix &H,int k){
@@ -696,15 +716,16 @@ ComplexMatrix Ak_(A_r, M);
 //RACalc(A);
 //ACalc(A);
 //A_short(A);
-//A_short2(A);
+A_short2(A);
 //A_short3(A);
 //A_twoparticles(A);
-A_mat(A);
+//A_mat(A);
 
 //int k= 2; //Center of orthogonality
 ComplexMatrix Op(m,m);
 
-Op = Number_MPO();
+//Op = Number_MPO();
+Op = Identity_MPO();
 
 Real result;
 
@@ -727,13 +748,17 @@ cout<<"Second goes the backward (fast)"<<endl;
 cout<<result<<endl;
 cout.rdbuf(out.rdbuf()); 
 
-/*
+
 result=MPO_measurement_s(A,Op,L);
 
 cout.rdbuf(oldCout); 
 cout<<"Third goes the slow one"<<endl;
 cout<<result<<endl;
-*/
+cout.rdbuf(out.rdbuf());
+
+
+//Calcular Magnetización (S_z)
+//Calcular Número de Partículas con una sola proyección (n_-1, n_0, n_1)
 
 
 return 0;
