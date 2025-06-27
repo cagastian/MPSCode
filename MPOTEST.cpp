@@ -21,7 +21,7 @@ using namespace ula;
 
 #define PI 3.14159265358979323846
 
-int m=16,M=20,L=16, w=2;
+int m=16,M=20,L=16, w=5; //Gotta change this general variable w bc it's giving problems in the functions in opten_MPO, Trmu_MPO and every MPO_measurement.
 
 #include <MPSLib.h>
 //#include <MPOlib.h>
@@ -124,7 +124,19 @@ void A_twoparticles(ComplexMatrix& A){
 	Correct(A,1);
 }
 
+void B_d_s2(ComplexMatrix& B){
+	for(int S=0;S<L;S++){
+		if(S==0){B(1*M,S*M)=1.;}
+		else{B(0*M,S*M)=1.;}
+	}
+}
 
+void A_d_s1(ComplexMatrix& A){
+	for(int S=0;S<L;S++){
+		if(S==L-1){A(1*M,S*M)=1.;}
+		else{A(0*M,S*M)=1.;}
+	}
+}
 
 //#########################################################################################################################################################################################################################
 //#### Testing MPO Functions ##############################################################################################################################################################################################
@@ -151,7 +163,7 @@ ComplexMatrix dot_prod(ComplexMatrix& A,ComplexMatrix& B){
     return C;
 }
 
-void CheckingNonZero(ComplexMatrix A){
+void CheckingNonZero(ComplexMatrix& A){
 	Real Win=0.;
 	int Ar=A.size1(), Ac=A.size2();
 	
@@ -165,7 +177,7 @@ void CheckingNonZero(ComplexMatrix A){
 		  }
 }
 
-void CheckingNonZero(ComplexVector A){
+void CheckingNonZero(ComplexVector& A){
 	Real Win=0.;
 	int Ar=A.size();
 	
@@ -180,6 +192,21 @@ void CheckingNonZero(ComplexVector A){
 //-------------------------Operators------------------------//
 
 //Number operator MPO
+ComplexMatrix I_MPO(int w){
+	ComplexMatrix I(m*w,m*w);
+	for(int alpha=0;alpha<w;alpha++){
+		for(int beta=0;beta<w;beta++){
+			SubComplexMatrix Op(I,Range(alpha*m, (alpha+1)*m),Range(beta*m, (beta+1)*m));
+			if(alpha==beta){
+				if(alpha==0 || alpha==w-1){
+					Op = ident_op();
+					}
+				}
+			}
+		}
+	return I;
+}
+
 ComplexMatrix Number_MPO(){
 	int w=2;
 	//m is the internal degrees of freedom
@@ -204,6 +231,60 @@ ComplexMatrix Number_MPO(){
 ComplexMatrix Identity_MPO(){
 	int w=2;
 	//m is the internal degrees of freedom
+	ComplexMatrix i(w*m,w*m);
+	for(int alpha=0;alpha<w;alpha++){
+		for(int beta=0;beta<w;beta++){
+			SubComplexMatrix Op(i,Range(alpha*m, (alpha+1)*m),Range(beta*m, (beta+1)*m));
+			if(alpha==beta){
+				Op = ident_op();
+				}
+			else if(alpha==1 && beta==0){
+				Op = ident_op();
+				}
+			else{
+				continue;
+				}
+		}
+	}
+	return i;
+}
+
+ComplexMatrix hopping_MPO(Real t){
+//sum_i,s b^\dagger_{i+1,s} b_{i,s}  
+	int w=5;
+	//m is the internal degrees of freedom
+	ComplexMatrix h(w*m,w*m);
+	for(int alpha=0;alpha<w;alpha++){
+		for(int beta=0;beta<w;beta++){
+			SubComplexMatrix Op(h,Range(alpha*m, (alpha+1)*m),Range(beta*m, (beta+1)*m));
+			if(alpha==beta){
+				if(alpha==0 || alpha==w-1){
+					Op = ident_op();
+					}
+				}
+			else if(beta==0){
+				if(alpha>0 && alpha<w-1){
+					Op = -t*Creation(alpha-1);
+				}
+				else{continue;}
+			}
+			else if(alpha==w-1){
+				if(beta>0 && beta<w-1){
+				Op = Annihilation(beta-1);
+				}
+				else{continue;}
+			}
+			else{
+				continue;
+				}
+		}
+	}
+	return h;
+}
+
+ComplexMatrix SpinUp_MPO(){
+	int w=2;
+	//m is the internal degrees of freedom
 	ComplexMatrix N(w*m,w*m);
 	for(int alpha=0;alpha<w;alpha++){
 		for(int beta=0;beta<w;beta++){
@@ -212,7 +293,7 @@ ComplexMatrix Identity_MPO(){
 				Op = ident_op();
 				}
 			else if(alpha==1 && beta==0){
-				Op = ident_op();
+				Op = Spin(1);
 				}
 			else{
 				continue;
@@ -317,6 +398,7 @@ ComplexMatrix opten_MPO(ComplexMatrix &H_flat, ComplexMatrix& A, int k){//No fla
 	ComplexMatrix OA(m*M,M), Op(m,m);
 	
 	ComplexMatrix Op_squared(m,m); 
+	
 	
 	//TESTING
 	//cout<<"H flat (inside Opten MPO)"<<endl;
@@ -443,6 +525,92 @@ ComplexMatrix TrnsfrMtrx_MPO(ComplexMatrix &H, ComplexMatrix& A, int k){
 	return supE;
 }
 
+ComplexMatrix TrnsfrMtrx_MPO_selector(ComplexMatrix &H, ComplexMatrix& A,ComplexMatrix& C, int k){
+//C IS A DIFFERENT STATE THAN A
+	int alpha,beta,gamma,Ns,alpha_,beta_,gamma_;
+	int w = H.size1()/m; //MPO bond dimension	
+	
+  	SubComplexMatrix Ak_(A,Range(0,m*M),Range(k*M,(k+1)*M));
+  	SubComplexMatrix Ck_(C,Range(0,m*M),Range(k*M,(k+1)*M));
+  	//First flatten the MPO in rows
+  	ComplexMatrix H_flat(m,w*w*m);
+  	H_flat=flatten_MPO(H,k);
+  	
+  	//Apply the MPO over the state at k-th site 
+  	ComplexMatrix ON(m*M*w*w,M);
+  	ON=opten_MPO(H_flat,A,k);
+			
+			//TESTING
+		 //cout<<"Checking for ON (k="<<k<<")"<<endl;
+		 //CheckingNonZero(ON);		
+  	
+	
+	ComplexMatrix OA(m*M,M);
+	ComplexMatrix Ak(m,M*M);
+  	ComplexMatrix Bk(m,M*M);
+  	
+  	ComplexMatrix E_(M*M,M*M);
+  	ComplexMatrix E(M*M,M*M);
+  	
+  	ComplexMatrix loc_regE(M*M,M*M);
+  	ComplexMatrix loc_supE_(M*M,M*M);
+  	ComplexMatrix loc_supE(M*M,M*M);
+  	
+  	ComplexMatrix supE_(w*w*M*M,M*M);
+  	ComplexMatrix regE(w*M*M,M*M);
+  	ComplexMatrix supE(w*M*M,w*M*M);	
+	
+	for(gamma=0;gamma<w*w;gamma++){
+		SubComplexMatrix OA(ON,Range(gamma*m*M,(gamma+1)*m*M),Range(0,M));
+		SubComplexMatrix loc_supE_(supE_,Range(gamma*M*M,(gamma+1)*M*M),Range(0,M*M));
+	  for(Ns=0;Ns<m;Ns++)
+	    for(alpha=0;alpha<M;alpha++)
+	      for(beta=0;beta<M;beta++){
+		Bk(Ns,alpha*M+beta)=OA(Ns*M+alpha,beta);
+		Ak(Ns,alpha*M+beta)=Ck_(Ns*M+alpha,beta); //CHANGE HERE TO C
+	      }
+	  
+	  noalias(E_)=prod(herm(Ak),Bk);
+	  
+	  for(alpha=0;alpha<M;alpha++){
+	    for(beta=0;beta<M;beta++){
+	      for(alpha_=0;alpha_<M;alpha_++){
+		for(beta_=0;beta_<M;beta_++){
+		
+		  E(alpha*M+alpha_,beta*M+beta_)=E_(alpha*M+beta,alpha_*M+beta_);
+		  			}
+		 	 	}
+		 	 }
+		  }
+	  loc_supE_=E;
+	  
+	  
+	}
+	
+	for(gamma=0;gamma<w;gamma++){
+	   SubComplexMatrix regE(supE_,Range(gamma*w*M*M,(gamma+1)*w*M*M),Range(0,M*M));
+	   ComplexMatrix temp_regE = regE;
+	   for(gamma_=0;gamma_<w;gamma_++){
+		SubComplexMatrix loc_regE(temp_regE,Range(gamma_*M*M,(gamma_+1)*M*M),Range(0,M*M));
+		SubComplexMatrix loc_supE(supE,Range(gamma_*M*M,(gamma_+1)*M*M),Range(gamma*M*M,(gamma+1)*M*M));
+		loc_supE=loc_regE;
+		
+		}
+  	}
+  	
+	return supE;
+}
+
+ComplexMatrix MPO_selector(ComplexMatrix &MPO, ComplexMatrix &I, int l, int k, int h){
+//MPO is MPO, I is I_MPO, l is the current site, k is the site from where you want to start putting the MPO until h
+// 0<k<h<L
+ 	if(l>=k && l<=h){
+ 		return MPO;
+ 	}
+ 	else{
+ 		return I;
+ 	}
+}
 
 //original (forward)
 Real MPO_measurement_f(ComplexMatrix& A, ComplexMatrix& H, int L) {
@@ -626,11 +794,13 @@ Real MPO_measurement_b(ComplexMatrix& A, ComplexMatrix& H, int L) { //THIS ONE D
     return measure;
 }
 
+//MPO_measurement slow
 
-//MPO_measurement_slow
 Real MPO_measurement_s(ComplexMatrix& A, ComplexMatrix& H, int L) { 
     // Compute the expectation value of an MPO using transfer matrices
+    //0<=k<=L ; k1<=k2
     Real measure;
+    
     
     // Copy MPS tensors
     ComplexMatrix Abra = A;
@@ -723,41 +893,142 @@ Real MPO_measurement_s(ComplexMatrix& A, ComplexMatrix& H, int L) {
     return measure;
 }
 
+//MPO that allows you to select in what places to put the MPO desired
+Real MPO_measurement_piecewise(ComplexMatrix& A,ComplexMatrix& B,ComplexMatrix& H, int L,int k1, int k2) { 
+    // Compute the expectation value of an MPO using transfer matrices
+    Real measure;
+    //int Ar = A.size1(), Ac = A.size2();
+    
+    int w = H.size1()/m;
+    
+    ComplexMatrix Impo(w*m,w*m);
+    Impo = I_MPO(w);
+    
+    // Copy MPS tensors
+    ComplexMatrix Bbra = B;
+    ComplexMatrix Aket = A;
+
+    // Initialize vectors and matrices-
+    ComplexVector E(w * M * M), Ef(w * M * M);
+    ComplexMatrix supEE_1(w * M, w * M), supEE_2(w * M * M, w * M * M), EE_3(w * M * M, w * M * M);
+    ComplexMatrix supE(w * M * M, w);
+    
+    
+    ComplexMatrix tempH = MPO_selector(H,Impo,0,k1,k2);
+    
+    
+    // Compute the first transfer matrix incorporating the MPO
+    supEE_2 = TrnsfrMtrx_MPO_selector(tempH, Aket,Bbra, 0);
+    supEE_1 = Trmu_MPO(supEE_2, 0);	  
+	
+	 
+    // Extract relevant elements into vector E
+    for (int gamma = 0; gamma < w; gamma++) {
+        for (int gamma_ = 0; gamma_ < w; gamma_++) {
+            SubComplexMatrix EE_1(supEE_1, Range(gamma * M, (gamma + 1) * M), Range(gamma_ * M, (gamma_ + 1) * M));
+            
+            for (int alpha = 0; alpha < M; alpha++) {
+                for (int alpha_ = 0; alpha_ < M; alpha_++) {
+                    int idx = gamma * M * M + alpha * M + alpha_;
+                    E(idx) = EE_1(alpha, alpha_);
+                }
+            }
+        }
+    }
+	
+    // Iterate through lattice sites to contract the transfer matrices
+    //CheckingNonZero(Aket);
+    
+    for (int ss = 1; ss < L; ss++) {
+    		
+    		tempH = MPO_selector(H,Impo,ss,k1,k2);
+    		
+            EE_3 = TrnsfrMtrx_MPO_selector(tempH, Aket,Bbra,ss);
+            E = prod(EE_3,E);//Qué pasa si no transpongo changed transposition and it's doing alright, still has problems in the borders tho test using A_mat and you'll get the correct value, unlike A_short2, which is 1 particle short.
+            	
+            	//TESTING
+		cout<<"Checking for TrnsfrMtrx_ k="<<ss<<endl;
+		CheckingNonZero(E);	      
+          
+    }
+
+    // Final site operation
+    	
+    	tempH = MPO_selector(H,Impo,L-1,k1,k2);
+    	
+	supEE_2 = TrnsfrMtrx_MPO_selector(tempH, Aket,Bbra, L-1);
+	supEE_1 = Trmu_MPO(supEE_2, 1);
+	
+	cout<<"Checking for TrnsfrMtrx_ k=L"<<endl;
+	CheckingNonZero(supEE_2);	 
+	
+	for (int gamma = 0; gamma < w; gamma++) {
+		for (int alpha = 0; alpha < M; alpha++) {
+			for (int alpha_ = 0; alpha_ < M; alpha_++) {
+				int idx = gamma * M * M + alpha * M + alpha_;
+				Ef(idx) = supEE_1(gamma * M + alpha, gamma * M + alpha_);
+                    }
+                }
+            }
+        
+	         //This one is currently working 
+         cout<<"--------------------------------------------------------"<<endl;
+        cout<<"Vectors after traces"<<endl;
+        cout<<"--------------------------------------------------------"<<endl;
+        
+        cout<<"Trace Right"<<endl;
+        CheckingNonZero(Ef);
+        
+        cout<<"Trace left"<<endl;
+        CheckingNonZero(E);
+         
+         
+        cout<<"--------------------------------------------------------"<<endl;
+        cout<<"Checking for the product of Transfer Matrices "<<endl;
+        cout<<"--------------------------------------------------------"<<endl;
+        
+    // Compute final measurement value as real inner product
+   
+    measure = real(inner_prod(E, Ef));
+
+    return measure;
+}
+
 //#######################################################################################################################################################################################
 //####         Main       ###############################################################################################################################################################
 //#######################################################################################################################################################################################
 
 int main(){
 
-
-
-ComplexMatrix A(M*m,M*L);
-
-int A_r = A.size1();
-ComplexMatrix Ak__(A_r, M);
-ComplexMatrix Ak_(A_r, M);
-
-//int k= 2; //Center of orthogonality
-ComplexMatrix Op(m,m);
-
-Op = Number_MPO();
-//Op = Identity_MPO();
-Real result;
-
-//RACalc(A);
-//ACalc(A);
-
-A_mat(A);
-//A_short(A);
-//A_short2(A);
-//A_short3(A);
-//A_twoparticles(A);
-
-
 ofstream out("kokito.txt");
 streambuf* oldCout = cout.rdbuf(); 
 cout.rdbuf(out.rdbuf()); 
 
+
+ComplexMatrix A(M*m,M*L), B(M*m,M*L);
+
+
+//int k= 2; //Center of orthogonality
+ComplexMatrix Op(m,m),Op_pair(m,m);
+
+Op = Number_MPO();
+//Op = Identity_MPO();
+Op_pair = hopping_MPO(-3.0);
+Real result;
+//RACalc(A);
+//ACalc(A);
+
+//A_mat(A);
+//A_short(A);
+//A_short2(A);
+//A_short3(A);
+//A_mat(B);
+//A_twoparticles(B);
+
+A_d_s1(A);
+B_d_s2(B);
+
+/*
 result=MPO_measurement_f(A,Op,L);
 
 cout.rdbuf(oldCout); 
@@ -772,14 +1043,16 @@ cout.rdbuf(oldCout);
 cout<<"Second goes the backward (fast)"<<endl;
 cout<<result<<endl;
 cout.rdbuf(out.rdbuf()); 
-
-/*
-result=MPO_measurement_s(A,Op,L);
-cout.rdbuf(oldCout); 
-cout<<"Third goes the slow one"<<endl;
-cout<<result<<endl;
-cout.rdbuf(out.rdbuf());
 */
+
+
+int k1=0,k2=L-1;
+result=MPO_measurement_piecewise(A,B,Op_pair,L,k1,k2);
+cout.rdbuf(oldCout); 
+cout<<"Hopping"<<endl;
+cout<<result<<endl;
+//cout.rdbuf(out.rdbuf());
+
 
 
 //Calcular Magnetización (S_z)
