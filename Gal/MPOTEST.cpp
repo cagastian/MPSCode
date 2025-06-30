@@ -1,3 +1,4 @@
+//Galindo's solution to borders, hopping & w deglobalized
 #include <boost/numeric/ublas/matrix.hpp>
 #include <boost/numeric/ublas/matrix_proxy.hpp>
 #include <boost/numeric/ublas/io.hpp>
@@ -21,9 +22,9 @@ using namespace ula;
 
 #define PI 3.14159265358979323846
 
-int m=16,M=20,L=16, w=5;//w=5;
+int m=16,M=20,L=16;
 
-#include </home/seb/Desktop/MPO/MPSLib.h>
+#include <MPSLib.h>
 //#include <MPOlib.h>
 
 //############################
@@ -189,7 +190,39 @@ void CheckingNonZero(ComplexVector& A){
 	}
 }
 
+ComplexMatrix prod_multiple(ComplexMatrix A, ComplexMatrix B, ComplexMatrix C, ComplexMatrix D){
+	//For square matrices
+	int Ar=A.size1(), Ac=A.size2();
+	ComplexMatrix CD(Ar,Ac),BCD(Ar,Ac),ABCD(Ar,Ac);
+	CD = prod(C,D);
+	BCD=prod(B,CD);
+	ABCD=prod(A,BCD);
+	return ABCD;
+}
+
 //-------------------------Operators------------------------//
+
+ComplexMatrix SingleSiteMPO(ComplexMatrix &O){
+	//Examples: Number_Op2(), ident_op(),Magnetization_Op(int spin (-1,1)),Total_Magnetization_Op(). 
+	int w=2;
+	//m is the internal degrees of freedom
+	ComplexMatrix MPO(w*m,w*m);
+	for(int alpha=0;alpha<w;alpha++){
+		for(int beta=0;beta<w;beta++){
+			SubComplexMatrix Op(MPO,Range(alpha*m, (alpha+1)*m),Range(beta*m, (beta+1)*m));
+			if(alpha==beta){
+				Op = ident_op();
+				}
+			else if(alpha==1 && beta==0){
+				Op = O;
+				}
+			else{
+				continue;
+				}
+		}
+	}
+	return MPO;
+}
 
 ComplexMatrix I_MPO(int w){
 	ComplexMatrix I(m*w,m*w);
@@ -206,51 +239,7 @@ ComplexMatrix I_MPO(int w){
 	return I;
 }
 
-//Number operator MPO
-ComplexMatrix Number_MPO(){
-	int w=2;
-	//m is the internal degrees of freedom
-	ComplexMatrix N(w*m,w*m);
-	for(int alpha=0;alpha<w;alpha++){
-		for(int beta=0;beta<w;beta++){
-			SubComplexMatrix Op(N,Range(alpha*m, (alpha+1)*m),Range(beta*m, (beta+1)*m));
-			if(alpha==beta){
-				Op = ident_op();
-				}
-			else if(alpha==1 && beta==0){
-				Op = Number_Op2();
-				}
-			else{
-				continue;
-				}
-		}
-	}
-	return N;
-}
-
-
-ComplexMatrix Identity_MPO(){
-	int w=2;
-	//m is the internal degrees of freedom
-	ComplexMatrix i(w*m,w*m);
-	for(int alpha=0;alpha<w;alpha++){
-		for(int beta=0;beta<w;beta++){
-			SubComplexMatrix Op(i,Range(alpha*m, (alpha+1)*m),Range(beta*m, (beta+1)*m));
-			if(alpha==beta){
-				Op = ident_op();
-				}
-			else if(alpha==1 && beta==0){
-				Op = ident_op();
-				}
-			else{
-				continue;
-				}
-		}
-	}
-	return i;
-}
-
-ComplexMatrix hopping_MPO(Real t){
+ComplexMatrix hopping_MPO(Real t){//Only forward
 //sum_i,s b^\dagger_{i+1,s} b_{i,s}  
 	int w=5;
 	//m is the internal degrees of freedom
@@ -283,10 +272,86 @@ ComplexMatrix hopping_MPO(Real t){
 	return h;
 }
 
+ComplexMatrix hopping_complete_MPO(Real t){
+	int w=8;
+	ComplexMatrix h(w*m,w*m);
+	for(int alpha=0;alpha<w;alpha++){
+		for(int beta=0;beta<w;beta++){
+			SubComplexMatrix Op(h,Range(alpha*m, (alpha+1)*m),Range(beta*m, (beta+1)*m));
+			if(alpha==beta){
+				if(alpha==0 || alpha==w-1){
+					Op = ident_op();
+				}
+				else{
+					continue;
+				}
+			}else if(beta==0){
+				if(alpha>0 && alpha<4){
+					Op = -t*Annihilation(alpha-1);
+				}else if(alpha>3 && alpha<w-1){
+					Op = -t*Creation(alpha-4);
+				}else{
+					continue;
+				}
+			}else if(alpha==w-1){
+				if(beta>0 && beta<4){
+					Op = Creation(beta-1);
+				}else if(beta>3 && beta<w-1){
+					Op = Annihilation(beta-4);
+				}else{
+					continue;
+				}
+			}else{
+				continue;
+			}
+		}
+	}
+	return h;
+}
+
+ComplexMatrix BH_Hamiltonian_MPO(Real t, Real g0,Real g2,Real D,Real mu){
+	int w=8;
+	ComplexMatrix H(w*m,w*m), Hint(m,m), Hchem(m,m), Hfield(m,m);
+	ComplexMatrix B0(m,m),b0(m,m),B1(m,m),b1(m,m),B2(m,m),b2(m,m);
+	
+	B0=Creation(0);
+	b0=Annihilation(0);
+	
+	B1=Creation(1);
+	b1=Annihilation(1);
+	
+	B2=Creation(2);
+	b2=Annihilation(2);
+	
+	Hint =((g0+2.0*g2)/(6.0))*prod_multiple(B1,B1,b1,b1)+((2.0*g0+g2)/(3.0))*prod_multiple(B2,B0,b2,b0)+((g2-g0)/(3.0))*(prod_multiple(B2,B0,b1,b1)+prod_multiple(B1,B1,b2,b0))+g2*(prod_multiple(B2,B2,b2,b2)+prod_multiple(B0,B0,b0,b0)+2.0*prod_multiple(B0,B1,b0,b1)+2.0*prod_multiple(B2,B1,b2,b1));
+	
+	Hchem = -mu*(prod(B0,b0)+prod(B1,b1)+prod(B2,b2));
+	
+	Hfield = D*(prod(B2,b2)-prod(B0,b0));
+	
+	H=hopping_complete_MPO(t);
+	
+	SubComplexMatrix Interaction(H,Range((w-1)*m, (w)*m),Range((w-1)*m, (w)*m));
+	Interaction = Hint+Hchem+Hfield;
+	return H;
+}
+
+
 ComplexMatrix MPO_selector(ComplexMatrix &MPO, ComplexMatrix &I, int l, int k, int h){
 //MPO is MPO, I is I_MPO, l is the current site, k is the site from where you want to start putting the MPO until h
 // 0<k<h<L
  	if(l>=k && l<=h){
+ 		return MPO;
+ 	}
+ 	else{
+ 		return I;
+ 	}
+}
+
+ComplexMatrix MPO_Correlator(ComplexMatrix &MPO, ComplexMatrix &I, int l, int k, int h){
+//MPO is MPO, I is I_MPO, l is the current site, k is the site from where you want to start putting the MPO until h
+// 0<k<h<L
+ 	if(l==k && l==h){
  		return MPO;
  	}
  	else{
@@ -371,7 +436,7 @@ ComplexMatrix Single_site_opten_MPO(ComplexMatrix &O,ComplexMatrix &A, int k){
 	return Ak_;
 }
 
-ComplexMatrix opten_MPO(ComplexMatrix &H_flat, ComplexMatrix& A, int k){
+ComplexMatrix opten_MPO(ComplexMatrix &H_flat, ComplexMatrix& A, int k, int w){
 	//H_flat is the MatrixOp Flattened to (m, m w^2)
 	//We have in mind that A.size = (mM,M)
 	ComplexMatrix ON(m*M*w*w,M);
@@ -394,7 +459,7 @@ ComplexMatrix opten_MPO(ComplexMatrix &H_flat, ComplexMatrix& A, int k){
 
 //Trace over left and right (d) MPO transfer matrix
 ComplexMatrix Trmu_MPO(ComplexMatrix &supE,bool d){
-  
+  	int w=supE.size1()/(M*M);
 	ComplexMatrix a_MPO(w*M,w*M);
 	ComplexMatrix a(M,M);
 	ComplexMatrix temp_supE(M*M,M*M);
@@ -428,7 +493,7 @@ ComplexMatrix TrnsfrMtrx_MPO(ComplexMatrix &H, ComplexMatrix& A, int k){
   	
   	//Apply the MPO over the state at k-th site 
   	ComplexMatrix ON(m*M*w*w,M);
-  	ON=opten_MPO(H_flat,A,k);
+  	ON=opten_MPO(H_flat,A,k,w);
 			
 			//TESTING
 		 //cout<<"Checking for ON (k="<<k<<")"<<endl;
@@ -501,7 +566,7 @@ ComplexMatrix TrnsfrMtrx_MPO_selector(ComplexMatrix &H, ComplexMatrix& A,Complex
 
   	//Apply the MPO over the state at k-th site 
   	ComplexMatrix ON(m*M*w*w,M);
-  	ON=opten_MPO(H_flat,A,k);
+  	ON=opten_MPO(H_flat,A,k,w);
 
 			//TESTING
 		 //cout<<"Checking for ON (k="<<k<<")"<<endl;
@@ -568,6 +633,7 @@ ComplexMatrix TrnsfrMtrx_MPO_selector(ComplexMatrix &H, ComplexMatrix& A,Complex
 Real MPO_measurement_f(ComplexMatrix& A, ComplexMatrix& H, int L) {
     // Compute the expectation value of an MPO using transfer matrices
     Real measure;
+    int w = H.size1()/m;
     //int Ar = A.size1(), Ac = A.size2();
     
     // Copy MPS tensors
@@ -681,7 +747,7 @@ Real MPO_measurement_f(ComplexMatrix& A, ComplexMatrix& H, int L) {
 Real MPO_measurement_b(ComplexMatrix& A, ComplexMatrix& H, int L) { //THIS ONE DOES IT FROM RIGHT TO LEFT.
     // Compute the expectation value of an MPO using transfer matrices
     Real measure;
-    
+    int w = H.size1()/m;
     // Copy MPS tensors
     ComplexMatrix Abra = A;
     ComplexMatrix Aket = A;
@@ -781,6 +847,7 @@ Real MPO_measurement_b(ComplexMatrix& A, ComplexMatrix& H, int L) { //THIS ONE D
 //MPO_measurement_slow
 Real MPO_measurement_s(ComplexMatrix& A, ComplexMatrix& H, int L) { 
     // Compute the expectation value of an MPO using transfer matrices
+    int w = H.size1()/m;
     Real measure;
     
     // Copy MPS tensors
@@ -996,11 +1063,18 @@ ComplexMatrix A(M*m,M*L), B(M*m,M*L);
 
 
 //int k= 2; //Center of orthogonality
-ComplexMatrix Op(m,m),Op_pair(m,m);
+ComplexMatrix Op(m,m), Mag_MPO,Op_pair(m,m),Mag(m,m);
 
-Op = Number_MPO();
 //Op = Identity_MPO();
+
 Op_pair = hopping_MPO(-3.0);
+
+Mag = Magnetization_Op(2);
+Mag_MPO=SingleSiteMPO(Mag);
+
+
+int g0=1.0, g2=2.0, t=1.0, D=5, mu=0.1;
+Op = BH_Hamiltonian_MPO(t,g0,g2,D,mu);
 Real result;
 //RACalc(A);
 //ACalc(A);
@@ -1008,36 +1082,42 @@ Real result;
 //A_mat(A);
 //A_short(A);
 //A_short2(A);
-//A_short3(A);
+A_short3(A);
 //A_mat(B);
-//A_twoparticles(B);
+//A_twoparticles(A);
 
-A_d_s1(A);
-B_d_s2(B);
 
-/*
-result=MPO_measurement_f(A,Op,L);
+
+
+
+result=MPO_measurement_f(A,Mag_MPO,L);
 
 cout.rdbuf(oldCout); 
 cout<<"First goes the fast (forward)"<<endl;
 cout<<result<<endl;
 cout.rdbuf(out.rdbuf()); 
 
-
+/*
 result=MPO_measurement_b(A,Op,L);
 
 cout.rdbuf(oldCout); 
 cout<<"Second goes the backward (fast)"<<endl;
 cout<<result<<endl;
 cout.rdbuf(out.rdbuf()); 
-*/
+
+
+
+A_d_s1(A);
+B_d_s2(B);
 
 
 int k1=0,k2=L-1;
-result=MPO_measurement_piecewise(A,B,Op_pair,L,k1,k2);
+result=MPO_measurement_piecewise(A,B,Op,L,k1,k2);
 cout.rdbuf(oldCout); 
 cout<<"Hopping"<<endl;
 cout<<result<<endl;
+*/
+
 //cout.rdbuf(out.rdbuf());
 
 
